@@ -13,7 +13,10 @@ class TorchVisionModel(nn.Module):
 
         self.loss = loss
         self.backbone = tvmodels.__dict__[name](pretrained=pretrained)
-        self.feature_dim = self.backbone.classifier[1].in_features
+        try:   # do change here
+            self.feature_dim = self.backbone.classifier[0].in_features 
+        except (TypeError, IndexError):
+            self.feature_dim = self.backbone.classifier[1].in_features
 
         # overwrite the classifier used for ImageNet pretrianing
         # nn.Identity() will do nothing, it's just a place-holder
