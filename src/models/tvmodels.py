@@ -4,7 +4,7 @@ import torch.nn as nn
 import torchvision.models as tvmodels
 
 
-__all__ = ["mobilenet_v3_small", "vgg16"]
+__all__ = ["mobilenet_v3_small", "vgg16", "efficientnet_b7"]
 
 
 class TorchVisionModel(nn.Module):
@@ -56,6 +56,17 @@ def mobilenet_v3_small(num_classes, loss={"xent"}, pretrained=True, **kwargs):
         **kwargs,
     )
     return model
+
+def efficientnet_b7(num_classes, loss={"xent"}, pretrained=True, **kwargs):
+    model = TorchVisionModel(
+        "efficientnet_b7",
+        num_classes=num_classes,
+        loss=loss,
+        pretrained=pretrained,
+        **kwargs,
+    )
+    return model
+
 
 
 # Define any models supported by torchvision bellow
