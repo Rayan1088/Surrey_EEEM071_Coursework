@@ -183,7 +183,7 @@ def train(
     batch_time = AverageMeter()
     data_time = AverageMeter()
     
-    scaler = torch.cuda.amp.GradScaler('cuda') # do change here 
+    scaler = torch.amp.GradScaler('cuda') # do change here 
     
     model.train()
     for p in model.parameters():
@@ -196,7 +196,7 @@ def train(
         if use_gpu:
             imgs, pids = imgs.cuda(), pids.cuda()
 
-        with torch.cuda.amp.autocast('cuda'): # do change here 
+        with torch.amp.autocast('cuda'): # do change here 
             outputs, features = model(imgs)
             if isinstance(outputs, (tuple, list)):
                 xent_loss = DeepSupervision(criterion_xent, outputs, pids)
