@@ -183,7 +183,7 @@ def train(
     batch_time = AverageMeter()
     data_time = AverageMeter()
     
-    scaler = torch.cuda.amp.GradScaler() # do change here 
+    scaler = torch.cuda.amp.GradScaler('cuda') # do change here 
     
     model.train()
     for p in model.parameters():
@@ -196,19 +196,21 @@ def train(
         if use_gpu:
             imgs, pids = imgs.cuda(), pids.cuda()
 
-        with torch.cuda.amp.autocast(): # do change here 
+        with torch.cuda.amp.autocast('cuda'): # do change here 
             outputs, features = model(imgs)
             if isinstance(outputs, (tuple, list)):
                 xent_loss = DeepSupervision(criterion_xent, outputs, pids)
             else:
                 xent_loss = criterion_xent(outputs, pids)
     
-            if isinstance(features, (tuple, list)):
-                htri_loss = DeepSupervision(criterion_htri, features, pids)
-            else:
-                htri_loss = criterion_htri(features, pids)
-    
-            loss = args.lambda_xent * xent_loss + args.lambda_htri * htri_loss # do change here 
+        if isinstance(features, (tuple, list)):
+           # htri_loss = DeepSupervision(criterion_htri, features, pids)
+            htri_loss = DeepSupervision(criterion_htri, [f.float() for f in features], pids) # do change here
+        else:
+            # htri_loss = criterion_htri(features, pids)
+            htri_loss = criterion_htri(features.float(), pids)
+
+        loss = args.lambda_xent * xent_loss + args.lambda_htri * htri_loss 
             
         optimizer.zero_grad()
         scaler.scale(loss).backward() # do change here 
