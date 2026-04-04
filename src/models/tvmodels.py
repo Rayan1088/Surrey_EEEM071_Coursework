@@ -14,8 +14,13 @@ class TorchVisionModel(nn.Module):
         self.loss = loss
         self.backbone = tvmodels.__dict__[name](pretrained=pretrained)
         try:   # do change here
+            # ResNet, MobileNet-V3, VGG, 
             self.feature_dim = self.backbone.classifier[0].in_features 
+        
         except (TypeError, IndexError, AttributeError):
+            #   EfficientNet-B7's classifier is Sequential(Dropout, Linear),
+            # [0] raises AttributeError (Dropout has no in_features), and 
+            # the except block correctly falls back to [1] which is the Linear layer.
             self.feature_dim = self.backbone.classifier[1].in_features
 
         # overwrite the classifier used for ImageNet pretrianing
