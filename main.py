@@ -81,9 +81,8 @@ def main():
     if args.load_weights and check_isfile(args.load_weights):
         load_pretrained_weights(model, args.load_weights)
 
-    model = nn.DataParallel(model).cuda() if use_gpu else model # Change Here
-    #model = nn.DataParallel(model, device_ids=[0, 1]).cuda() if use_gpu else model # Switch from DataParallel to DistributedDataParallel
-
+    model = nn.DataParallel(model).cuda() if use_gpu else model 
+    
     criterion_xent = CrossEntropyLoss(
         num_classes=dm.num_train_pids, use_gpu=use_gpu, label_smooth=args.label_smooth
     )
@@ -184,7 +183,10 @@ def train(
     batch_time = AverageMeter()
     data_time = AverageMeter()
     
-    scaler = torch.amp.GradScaler('cuda') # do change here 
+    scaler = torch.amp.GradScaler('cuda')
+    # The triplet loss computation, which requires float32 precision for numerical stability in its pairwise distance matrix,
+    # was explicitly cast back to float32 outside the autocast context to avoid dtype mismatch errors. A GradScaler was employed 
+    # alongside AMP to prevent gradient underflow caused by the reduced float16 precision range
     
     model.train()
     for p in model.parameters():
@@ -197,7 +199,9 @@ def train(
         if use_gpu:
             imgs, pids = imgs.cuda(), pids.cuda()
 
-        with torch.amp.autocast('cuda'): # do change here 
+        with torch.amp.autocast('cuda'): 
+        # [torch.amp.autocast('cuda')] Automatic Mixed Precision (AMP) training via PyTorch's
+        # which reduces activation memory by storing intermediate tensors in float16 instead of float32.
             outputs, features = model(imgs)
             if isinstance(outputs, (tuple, list)):
                 xent_loss = DeepSupervision(criterion_xent, outputs, pids)
@@ -214,11 +218,22 @@ def train(
         loss = args.lambda_xent * xent_loss + args.lambda_htri * htri_loss 
             
         optimizer.zero_grad()
-        scaler.scale(loss).backward() # do change here 
-        scaler.step(optimizer) # do change here 
+        scaler.scale(loss).backward()
+        # AMP computes gradients in float16, which has a tiny range (~6e-5 to 65504)
+        # Small gradients underflow to zero in float16 and are lost forever
+        # scaler.scale() multiplies the loss by a large number (e.g. ×1024) before backward,
+        # which pushes small gradients into the float16 representable range Without this, gradients vanish → model doesn't learn
+        
+        scaler.step(optimizer) 
+        # Before updating weights, the scaler unscales the gradients back to their true values (divides by the same scale factor)
+        # It also checks for inf/NaN in gradients — if found, it skips the update entirely that step to avoid corrupting weights
+        # Only then calls optimizer.step() internally
+
         scaler.update()
-        # loss.backward()
-        # optimizer.step()
+        # Adjusts the scale factor for the next iteration
+        # If no inf/NaN was found → scale factor stays the same or increases
+        # If inf/NaN was found → scale factor is reduced for next step
+        # This is the adaptive part of GradScaler
 
         batch_time.update(time.time() - end)
 
