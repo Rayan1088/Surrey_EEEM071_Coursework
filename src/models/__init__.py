@@ -8,7 +8,7 @@ from .resnet import (
     resnet50,
     resnet50_fc512,
 )
-from .tvmodels import mobilenet_v3_small, vgg16, efficientnet_b6
+from .tvmodels import mobilenet_v3_small, vgg16, efficientnet_b4
 
 
 __model_factory = {
